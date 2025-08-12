@@ -1,8 +1,12 @@
-══════════════════════════════════════════════════════════════════════════════
- STEP 1 — INITIAL HOST INFO & IP IDENTIFICATION
-══════════════════════════════════════════════════════════════════════════════
-# Purpose: Know the host’s system info and IP for later testing.
+# n8n Docker Setup Guide
 
+---
+
+## STEP 1 — INITIAL HOST INFO & IP IDENTIFICATION
+
+**Purpose:** Identify the host’s system details and IP address for later testing.
+
+```bash
 # Show hostname (computer name)
 hostname
 
@@ -20,14 +24,15 @@ hostname -I
 
 # Optional: Public IP (Internet-facing)
 curl -s https://ifconfig.co
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 2 — CHECK PORT USAGE (5678)
-══════════════════════════════════════════════════════════════════════════════
-# Purpose: See if any process is already using port 5678.
+## STEP 2 — CHECK PORT USAGE (5678)
 
+**Purpose:** Verify if any process is already using port 5678.
+
+```bash
 # Method 1 — Using ss
 sudo ss -tulnp | grep ':5678'
 
@@ -36,25 +41,30 @@ sudo lsof -nP -iTCP:5678 -sTCP:LISTEN
 
 # Method 3 — Using netstat (if installed)
 sudo netstat -tulnp | grep 5678
+```
 
-# OUTPUT:
-# tcp   LISTEN   0   128   0.0.0.0:5678   0.0.0.0:*   users:(("docker-proxy",pid=1234,fd=4))
-# → Means port is in use by docker-proxy (PID 1234)
-══════════════════════════════════════════════════════════════════════════════
+**Sample Output:**
 
+```
+tcp   LISTEN   0   128   0.0.0.0:5678   0.0.0.0:*   users:("docker-proxy",pid=1234,fd=4))
+```
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 3 — KILL EXISTING PROCESSES ON PORT 5678 (IF ANY)
-══════════════════════════════════════════════════════════════════════════════
-# Purpose: Free up port 5678 before running n8n.
+→ Means port is in use by docker-proxy (PID 1234).
 
+---
+
+## STEP 3 — KILL EXISTING PROCESSES ON PORT 5678 (IF ANY)
+
+**Purpose:** Free up port 5678 before running n8n.
+
+```bash
 # Find PID of process using port
 sudo lsof -t -i:5678
 
 # Show details of that PID
 ps -p <PID> -o pid,user,cmd
 
-# If it’s a Docker container, stop it:
+# If it’s a Docker container, stop & remove:
 docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
 docker stop <container_id_or_name>
 docker rm <container_id_or_name>
@@ -63,17 +73,18 @@ docker rm <container_id_or_name>
 sudo systemctl stop <service-name>
 
 # If must kill manually:
-sudo kill <PID>         # try graceful
+sudo kill <PID>         # graceful
 sudo kill -15 <PID>     # force terminate
 sudo kill -9 <PID>      # last resort
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 4 — PREPARE HOST RESOURCES
-══════════════════════════════════════════════════════════════════════════════
-# Purpose: Ensure Docker, disk, RAM, firewall are ready.
+## STEP 4 — PREPARE HOST RESOURCES
 
+**Purpose:** Ensure Docker, disk space, RAM, and firewall are ready.
+
+```bash
 # Check Docker installed
 docker --version
 
@@ -101,13 +112,15 @@ sudo firewall-cmd --reload
 # Prepare volume for n8n data
 mkdir -p ~/.n8n
 sudo chown 1000:1000 ~/.n8n
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 5 — START n8n DOCKER CONTAINER
-══════════════════════════════════════════════════════════════════════════════
-# Quick method with docker run:
+## STEP 5 — START n8n DOCKER CONTAINER
+
+### Quick method (docker run):
+
+```bash
 docker run -d \
   --name n8n \
   --restart unless-stopped \
@@ -118,10 +131,15 @@ docker run -d \
   -e N8N_BASIC_AUTH_PASSWORD='StrongPassHere' \
   -e TZ='Asia/Kolkata' \
   n8nio/n8n:latest
+```
 
-# Recommended method with docker-compose:
+### Recommended method (docker-compose):
+
+```bash
 nano docker-compose.yml
----
+```
+
+```yaml
 version: "3.8"
 services:
   n8n:
@@ -137,15 +155,17 @@ services:
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=StrongPassHere
       - TZ=Asia/Kolkata
----
-# Save & exit, then:
+```
+
+```bash
 docker-compose up -d
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 6 — VERIFY PORT BINDING
-══════════════════════════════════════════════════════════════════════════════
+## STEP 6 — VERIFY PORT BINDING
+
+```bash
 # See container is running
 docker ps --filter name=n8n
 
@@ -154,12 +174,13 @@ sudo ss -tulnp | grep ':5678'
 
 # Or using docker inspect
 docker port n8n 5678
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 7 — TEST n8n ACCESSIBILITY
-══════════════════════════════════════════════════════════════════════════════
+## STEP 7 — TEST n8n ACCESSIBILITY
+
+```bash
 # From host machine
 curl -I http://localhost:5678
 
@@ -168,16 +189,18 @@ curl -I http://<server-ip>:5678
 
 # In browser
 http://<server-ip>:5678
+```
 
-# EXPECTED:
-# - Browser shows n8n UI (with login prompt if basic auth enabled)
-# - curl shows "HTTP/1.1 200 OK" or auth request
-══════════════════════════════════════════════════════════════════════════════
+**Expected:**
 
+* Browser shows n8n UI (with login prompt if basic auth enabled)
+* `curl` shows `HTTP/1.1 200 OK` or authentication request
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 8 — FINAL CLEANUP & CONFIRMATION
-══════════════════════════════════════════════════════════════════════════════
+---
+
+## STEP 8 — FINAL CLEANUP & CONFIRMATION
+
+```bash
 # Stop container
 docker stop n8n
 
@@ -189,17 +212,19 @@ docker system prune -f
 
 # Check if port is free
 sudo ss -tulnp | grep ':5678' || echo "Port 5678 free"
-══════════════════════════════════════════════════════════════════════════════
+```
 
+---
 
-══════════════════════════════════════════════════════════════════════════════
- STEP 9 — NOTES / SECURITY / DOUBTS
-══════════════════════════════════════════════════════════════════════════════
-- Always map volume (~/.n8n) for persistence.
-- Use strong BASIC auth in production.
-- Better: put n8n behind reverse proxy with HTTPS.
-- For production DB: Use Postgres instead of SQLite.
-- Backup both DB + ~/.n8n regularly.
-- Keep Docker & n8n image updated: 
-  docker pull n8nio/n8n && docker-compose up -d
-══════════════════════════════════════════════════════════════════════════════
+## STEP 9 — NOTES / SECURITY / DOUBTS
+
+* Always map volume (`~/.n8n`) for persistence.
+* Use strong BASIC auth in production.
+* Better: put n8n behind reverse proxy with HTTPS.
+* For production DB: Use Postgres instead of SQLite.
+* Backup both DB + `~/.n8n` regularly.
+* Keep Docker & n8n image updated:
+
+```bash
+docker pull n8nio/n8n && docker-compose up -d
+```
